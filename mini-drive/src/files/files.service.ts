@@ -16,7 +16,7 @@ import {
 import { basename, extname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-type UploadedFile = {
+export type UploadedFile = {
   originalname: string;
   buffer: Buffer;
   size: number;
@@ -115,5 +115,17 @@ export class FilesService {
 
       throw error;
     }
+  }
+
+  private getFilePath(fileName: string): string {
+    if (!fileName || basename(fileName) !== fileName) {
+      throw new BadRequestException('Nome de arquivo inválido');
+    }
+
+    return join(this.uploadDir, fileName);
+  }
+
+  private isFileNotFoundError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && 'code' in error && error.code === 'ENOENT';
   }
 }
