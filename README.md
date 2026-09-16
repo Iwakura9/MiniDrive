@@ -1,7 +1,18 @@
 # MiniDrive
 
+Repositório feito para aprender Angular, NestJS e processamento assíncrono
+como preparação para um processo seletivo.
+
 MVP de armazenamento pessoal com NestJS, Angular, autenticação JWT e SQLite.
 Os metadados ficam em `data/minidrive.sqlite` e o conteúdo em `arquivos/`.
+
+## Funcionalidades
+
+- login do usuário inicial configurado no ambiente;
+- sessão JWT mantida durante a aba do navegador;
+- upload concorrente de até 10 arquivos de 10 MB;
+- rollback do lote se uma gravação ou transação falhar;
+- listagem, renomeação e exclusão por proprietário.
 
 ## Executando
 
@@ -17,14 +28,6 @@ npm start --prefix mini-drive-web
 Acesse `http://localhost:4200`. O Angular encaminha `/api` para o backend em
 `http://localhost:3000`.
 
-## Funcionalidades
-
-- login do usuário inicial configurado no ambiente;
-- sessão JWT mantida durante a aba do navegador;
-- upload concorrente de até 10 arquivos de 10 MB;
-- rollback do lote se uma gravação ou transação falhar;
-- listagem, renomeação e exclusão por proprietário.
-
 ## API
 
 - `POST /api/auth/login`
@@ -34,12 +37,3 @@ Acesse `http://localhost:4200`. O Angular encaminha `/api` para o backend em
 - `DELETE /api/files/:id`
 
 As rotas de arquivos exigem `Authorization: Bearer <token>`.
-
-## Verificação
-
-```bash
-npm run lint
-npm test
-npm run test:e2e
-npm run build
-```
