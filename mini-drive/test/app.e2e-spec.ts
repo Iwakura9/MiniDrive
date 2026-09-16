@@ -4,6 +4,11 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
+process.env.JWT_SECRET = 'test-secret-with-at-least-thirty-two-characters';
+process.env.APP_USERNAME = 'test-user';
+process.env.APP_PASSWORD = 'test-password';
+process.env.DB_PATH = ':memory:';
+
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
