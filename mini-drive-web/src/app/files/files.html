@@ -1,0 +1,10 @@
+<div class="app-shell">
+  <aside><div class="logo"><span>M</span> MiniDrive</div><nav><a class="active">▣ Meus arquivos</a></nav><div class="profile"><div class="avatar">{{ auth.session()?.user?.username?.charAt(0)?.toUpperCase() }}</div><div><strong>{{ auth.session()?.user?.username }}</strong><small>Conta pessoal</small></div><button title="Sair" (click)="logout()">↗</button></div></aside>
+  <main><header><div><p class="eyebrow">VISÃO GERAL</p><h1>Meus arquivos</h1><p>Gerencie seus documentos em um só lugar.</p></div><label class="upload-button">＋ Adicionar arquivos<input type="file" multiple (change)="choose($event)"></label></header>
+    @if (selected().length) { <section class="upload-bar"><div><strong>{{ selected().length }} arquivo(s) selecionado(s)</strong><span>Máximo de 10 arquivos, 10 MB cada.</span></div><button (click)="upload()" [disabled]="busy()">{{ busy() ? 'Enviando…' : 'Enviar agora' }}</button></section> }
+    @if (message()) { <p class="notice success">{{ message() }}</p> } @if (error()) { <p class="notice error">{{ error() }}</p> }
+    <section class="files-card"><div class="card-head"><h2>Arquivos recentes</h2><span>{{ files().length }} item(ns)</span></div>
+      @if (loading()) { <div class="empty">Carregando…</div> } @else if (!files().length) { <div class="empty"><div class="empty-icon">⇧</div><h3>Seu MiniDrive está vazio</h3><p>Adicione seus primeiros arquivos para começar.</p></div> } @else { <div class="table"><div class="row table-head"><span>Nome</span><span>Tamanho</span><span>Modificado</span><span></span></div>@for (file of files(); track file.id) { <div class="row"><span class="file-name"><b>▤</b><span><strong>{{ file.name }}</strong><small>{{ file.mimeType || 'Arquivo' }}</small></span></span><span>{{ file.size / 1024 | number:'1.0-1' }} KB</span><span>{{ file.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span><span class="actions"><button (click)="rename(file)" title="Renomear">✎</button><button (click)="remove(file)" title="Excluir">⌫</button></span></div> }</div> }
+    </section>
+  </main>
+</div>
