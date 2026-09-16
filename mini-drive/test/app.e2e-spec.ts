@@ -9,7 +9,7 @@ process.env.APP_USERNAME = 'test-user';
 process.env.APP_PASSWORD = 'test-password';
 process.env.DB_PATH = ':memory:';
 
-describe('AppController (e2e)', () => {
+describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
@@ -21,11 +21,15 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/auth/login (POST)', () => {
     return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .post('/auth/login')
+      .send({ username: 'test-user', password: 'test-password' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.accessToken).toEqual(expect.any(String));
+        expect(body.user).toEqual({ id: expect.any(Number), username: 'test-user' });
+      });
   });
 
   afterEach(async () => {
