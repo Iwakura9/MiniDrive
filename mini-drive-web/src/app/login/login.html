@@ -1,0 +1,11 @@
+<main class="login-shell">
+  <section class="brand"><span class="brand-mark">M</span><p>SEU ESPAÇO DIGITAL</p><h1>Arquivos seguros.<br><em>Sempre com você.</em></h1><p class="lead">Organize e gerencie seus arquivos pessoais em um só lugar.</p></section>
+  <section class="login-card"><div class="mobile-logo"><span class="brand-mark">M</span> MiniDrive</div><p class="eyebrow">BEM-VINDO DE VOLTA</p><h2>Entre na sua conta</h2><p class="muted">Use suas credenciais para acessar seus arquivos.</p>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label>Usuário<input formControlName="username" autocomplete="username" placeholder="Digite seu usuário"></label>
+      <label>Senha<input type="password" formControlName="password" autocomplete="current-password" placeholder="Digite sua senha"></label>
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      <button type="submit" [disabled]="form.invalid || loading()">{{ loading() ? 'Entrando…' : 'Entrar' }}</button>
+    </form><p class="secure">🔒 Conexão protegida</p>
+  </section>
+</main>
