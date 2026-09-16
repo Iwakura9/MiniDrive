@@ -1,131 +1,33 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  access,
-  mkdir,
-  readdir,
-  rename,
-  stat,
-  unlink,
-  writeFile,
-} from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { extname, join } from 'node:path';
+import { DataSource, Repository } from 'typeorm';
+import { StoredFile } from './file.entity';
 
-export type UploadedFile = {
-  originalname: string;
-  buffer: Buffer;
-  size: number;
-  mimetype: string;
-};
-
+export type UploadedFile = { originalname: string; buffer: Buffer; size: number; mimetype: string };
+const summary = (file: StoredFile) => ({ id: file.id, name: file.name, size: file.size, mimeType: file.mimeType, createdAt: file.createdAt, updatedAt: file.updatedAt });
 @Injectable()
 export class FilesService {
-  private readonly uploadDir: string = join(process.cwd(), '../arquivos');
-
-  async saveFile(file: UploadedFile, ownerId: number) {
-    // cria o diretorio, caso não exista
+  private readonly uploadDir: string;
+  constructor(@InjectRepository(StoredFile) private readonly files: Repository<StoredFile>, private readonly dataSource: DataSource, config: ConfigService) { this.uploadDir = config.getOrThrow<string>('uploadDir'); }
+  async listFiles(ownerId: number) { return (await this.files.find({ where: { ownerId }, order: { createdAt: 'DESC' } })).map(summary); }
+  async saveFiles(uploaded: UploadedFile[] | undefined, ownerId: number) {
+    if (!uploaded?.length || uploaded.length > 10) throw new BadRequestException('Envie entre 1 e 10 arquivos');
+    const names = uploaded.map((f) => this.validName(f.originalname));
+    if (new Set(names).size !== names.length || await this.files.count({ where: names.map((name) => ({ ownerId, name })) }) > 0) throw new ConflictException('Já existe arquivo com esse nome');
     await mkdir(this.uploadDir, { recursive: true });
-
-    // nome do arquivo no servidor, para evitar duplicidade
-    const storedName: string = `${randomUUID()}${extname(file.originalname)}`;
-    const filePath: string = join(this.uploadDir, storedName);
-
-    await writeFile(filePath, file.buffer);
-
-    return {
-      filename: file.originalname,
-      storedName,
-      path: filePath,
-      size: file.size,
-      mimeType: file.mimetype,
-      ownerId,
-      lastmodified: new Date(),
-    };
+    const records = uploaded.map((f, i) => this.files.create({ id: randomUUID(), ownerId, name: names[i], storedName: `${randomUUID()}${extname(names[i]).toLowerCase()}`, mimeType: f.mimetype, size: f.size }));
+    const results = await Promise.allSettled(records.map((r, i) => writeFile(join(this.uploadDir, r.storedName), uploaded[i].buffer)));
+    if (results.some((r) => r.status === 'rejected')) { await this.cleanup(records); throw new BadRequestException('Não foi possível salvar o lote'); }
+    try { await this.dataSource.transaction((manager) => manager.save(records)); } catch { await this.cleanup(records); throw new ConflictException('Já existe arquivo com esse nome'); }
+    return records.map(summary);
   }
-
-  async saveFiles(files: UploadedFile[], ownerId: number) {
-    return Promise.all(files.map((file) => this.saveFile(file, ownerId)));
-  }
-
-  async listFiles() {
-    await mkdir(this.uploadDir, { recursive: true });
-
-    const entries = await readdir(this.uploadDir, { withFileTypes: true });
-    const files = entries.filter((entry) => entry.isFile());
-
-    return Promise.all(
-      files.map(async (file) => {
-        const filePath = join(this.uploadDir, file.name);
-        const fileStats = await stat(filePath);
-
-        return {
-          storedName: file.name,
-          path: filePath,
-          size: fileStats.size,
-          lastModified: fileStats.mtime,
-        };
-      }),
-    );
-  }
-
-  async renameFile(currentName: string, newName: string) {
-    const currentPath = this.getFilePath(currentName);
-    const newPath = this.getFilePath(newName);
-
-    try {
-      await access(newPath);
-      throw new ConflictException('Já existe um arquivo com esse nome');
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-
-      if (!this.isFileNotFoundError(error)) {
-        throw error;
-      }
-    }
-
-    try {
-      await rename(currentPath, newPath);
-    } catch (error) {
-      if (this.isFileNotFoundError(error)) {
-        throw new NotFoundException('Arquivo não encontrado');
-      }
-
-      throw error;
-    }
-
-    return { storedName: newName, path: newPath };
-  }
-
-  async deleteFile(fileName: string) {
-    const filePath = this.getFilePath(fileName);
-
-    try {
-      await unlink(filePath);
-    } catch (error) {
-      if (this.isFileNotFoundError(error)) {
-        throw new NotFoundException('Arquivo não encontrado');
-      }
-
-      throw error;
-    }
-  }
-
-  private getFilePath(fileName: string): string {
-    if (!fileName || basename(fileName) !== fileName) {
-      throw new BadRequestException('Nome de arquivo inválido');
-    }
-
-    return join(this.uploadDir, fileName);
-  }
-
-  private isFileNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && 'code' in error && error.code === 'ENOENT';
-  }
+  async renameFile(id: string, name: string, ownerId: number) { const file = await this.find(id, ownerId); file.name = this.validName(name); try { return summary(await this.files.save(file)); } catch { throw new ConflictException('Já existe arquivo com esse nome'); } }
+  async deleteFile(id: string, ownerId: number) { const file = await this.find(id, ownerId); try { await unlink(join(this.uploadDir, file.storedName)); } catch (error) { if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error; } await this.files.remove(file); }
+  private async find(id: string, ownerId: number) { const file = await this.files.findOneBy({ id, ownerId }); if (!file) throw new NotFoundException('Arquivo não encontrado'); return file; }
+  private validName(name: string) { if (!name || name.length > 255 || /[\\/\0]/.test(name)) throw new BadRequestException('Nome de arquivo inválido'); return name; }
+  private async cleanup(files: StoredFile[]) { await Promise.all(files.map(async (f) => { try { await unlink(join(this.uploadDir, f.storedName)); } catch {} })); }
 }

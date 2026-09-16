@@ -8,20 +8,19 @@ import {
   Param,
   Patch,
   Post,
-  UploadedFile,
   UploadedFiles,
   UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
-import {
-  FileInterceptor,
-  FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   FilesService,
   type UploadedFile as UploadedFileData,
 } from './files.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/jwt-auth.guard';
+import { RenameFileDto } from './rename-file.dto';
 
 @Controller('files')
 @UseGuards(JwtAuthGuard)
@@ -29,33 +28,28 @@ export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
   @Get()
-  listFiles() {
-    return this.filesService.listFiles();
+  listFiles(@CurrentUser() user: AuthenticatedUser) {
+    return this.filesService.listFiles(user.id);
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
-  saveFile(@UploadedFile() file: UploadedFileData) {
-    return this.filesService.saveFile(file, 1); // trocar por id
+  @UseInterceptors(FilesInterceptor('files', 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  saveFiles(@UploadedFiles() files: UploadedFileData[], @CurrentUser() user: AuthenticatedUser) {
+    return this.filesService.saveFiles(files, user.id);
   }
 
-  @Post('multiple')
-  @UseInterceptors(FilesInterceptor('files', 10))
-  saveFiles(@UploadedFiles() files: UploadedFileData[]) {
-    return this.filesService.saveFiles(files, 1); // trocar por id
-  }
-
-  @Patch(':currentName')
+  @Patch(':id')
   renameFile(
-    @Param('currentName') currentName: string, // trocar parametro pelo id
-    @Body('newName') newName: string,
+    @Param('id') id: string,
+    @Body() dto: RenameFileDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.filesService.renameFile(currentName, newName);
+    return this.filesService.renameFile(id, dto.name, user.id);
   }
 
-  @Delete(':fileName')
+  @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteFile(@Param('fileName') fileName: string) { // trocar parametro pelo id
-    return this.filesService.deleteFile(fileName);
+  deleteFile(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.filesService.deleteFile(id, user.id);
   }
 }
