@@ -1,15 +1,45 @@
 # MiniDrive
 
-MiniDrive é um projeto de estudo inspirado no Google Drive. A aplicação permitirá autenticar um usuário e gerenciar arquivos por meio de uma interface web, incluindo envio de múltiplos arquivos, listagem, renomeação e exclusão.
+MVP de armazenamento pessoal com NestJS, Angular, autenticação JWT e SQLite.
+Os metadados ficam em `data/minidrive.sqlite` e o conteúdo em `arquivos/`.
 
-## Tecnologias
+## Executando
 
-- NestJS e Node.js no backend
-- Angular no frontend
-- TypeScript
-- JWT para autenticação
-- Jest para testes
+Requer Node.js 22 ou superior. Copie `.env.example` para `.env`, ajuste os
+segredos e execute:
 
-## Objetivo
+```bash
+npm run setup
+npm run start:dev --prefix mini-drive
+npm start --prefix mini-drive-web
+```
 
-O objetivo é praticar os principais conceitos do desenvolvimento web com NestJS e Angular, construindo uma aplicação simples e funcional enquanto são estudados autenticação, manipulação assíncrona de arquivos, integração entre frontend e backend e testes automatizados.
+Acesse `http://localhost:4200`. O Angular encaminha `/api` para o backend em
+`http://localhost:3000`.
+
+## Funcionalidades
+
+- login do usuário inicial configurado no ambiente;
+- sessão JWT mantida durante a aba do navegador;
+- upload concorrente de até 10 arquivos de 10 MB;
+- rollback do lote se uma gravação ou transação falhar;
+- listagem, renomeação e exclusão por proprietário.
+
+## API
+
+- `POST /api/auth/login`
+- `GET /api/files`
+- `POST /api/files` (`multipart/form-data`, campo `files`)
+- `PATCH /api/files/:id`
+- `DELETE /api/files/:id`
+
+As rotas de arquivos exigem `Authorization: Bearer <token>`.
+
+## Verificação
+
+```bash
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+```
